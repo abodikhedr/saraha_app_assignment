@@ -204,7 +204,7 @@ export const signin = async (req, res, next) => {
             id: user._id,
             email: user.email,
             phone: decrypt(user.phone),
-        }, "test1",
+        }, ACCESS_TOKEN_SEGNATURE,
             {
                 expiresIn: "400s",
                 audience: "http://localhost:4000",
@@ -215,7 +215,7 @@ export const signin = async (req, res, next) => {
             id: user._id,
             email: user.email,
             phone: decrypt(user.phone)
-        }, "test2", {
+        }, REFRESH_TOKEN_SEGNATURE, {
             expiresIn: "4000s",
             audience: "http://localhost:4000",
             issuer: "http://localhost:3000",
@@ -292,7 +292,7 @@ export const refreshToken = async (req, res, next) => {
         id: user._id,
         email: user.email,
         phone: decrypt(user.phone)
-    }, "test1",
+    }, ACCESS_TOKEN_SEGNATURE,
     )
     return success_response({ res, statuscode: 201, message: "done", data: access_token })
 
