@@ -1,5 +1,5 @@
 config/*
-!config/confix.service.js
+!config/config.service.js
 
 node_modules
 uploads
