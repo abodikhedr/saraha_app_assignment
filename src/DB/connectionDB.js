@@ -1,10 +1,11 @@
 import mongoose from 'mongoose';
+import { DB_URI, PORT } from '../../config/config.service.js';
 
 
 
 const connectionDB = async () => {
     try {
-        await mongoose.connect('mongodb://127.0.0.1:27017/saraha_app',{
+        await mongoose.connect(DB_URI,{
             serverSelectionTimeoutMS:5000
         });
         console.log("database connected successfuly");

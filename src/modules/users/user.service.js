@@ -10,6 +10,9 @@ import { deleteKey, exists, getValue, incr, keys, setValue, ttl } from "../../DB
 import { generate_otp, sendEmail } from "../../common/services/sendEmail.js"
 import { eventEmitter } from "../../common/utils/events.js"
 import { sendEmailOtp } from "./user.helper.js"
+import { template } from "../../common/utils/html.templates.js"
+import { ACCESS_TOKEN_SEGNATURE, AUDIANCE_EMAIL, REFRESH_TOKEN_SEGNATURE } from "../../../config/config.service.js"
+import { success_response } from "../../common/utils/success.response.js"
 const client = new OAuth2Client();
 
 
@@ -35,22 +38,11 @@ export const signup = async (req, res, next) => {
         value: 1,
         ttl: 60 * 5
     })
-
-    eventEmitter.emit("confirm_email", async () => {
-        await sendEmail({
-            to: email,
-            subject: "confirm email",
-            html: `<h1>otp::${otp}<h1>`
-        })
-    }
-    )
-
-
     const user = await dbService.create({
         model: userModel,
         data: {
             email,
-            password: await hash(password, 12),
+            password: await hash(password),
             fName,
             lName,
             age,
@@ -59,9 +51,16 @@ export const signup = async (req, res, next) => {
             profileImage: req.files.attachment[0].path,
             coverImages: paths
         },
-
     })
-    res.status(201).json({ message: "account created successfully", user })
+    eventEmitter.emit("confirm_email", async () => {
+        await sendEmail({
+            to: email,
+            subject: "confirm email",
+            html: template.otpmail(otp)
+        })
+    }
+    )
+    success_response({ res, statuscode: 201, message: "user created successfully", data: user })
 }
 
 //================resendOtp================
@@ -71,7 +70,8 @@ export const resendOtp = async (req, res, next) => {
         email: email,
         isConfirmed: false
     })
-    res.status(201).json({ message: "otp resent successfully" })
+    success_response({ res, statuscode: 201, message: "otp resent successfully" })
+
 }
 
 //================sign up with gmail================
@@ -80,7 +80,7 @@ export const signupWithGmail = async (req, res, next) => {
     const { idToken } = req.body
     const ticket = await client.verifyIdToken({
         idToken,
-        audience: "1043769584776-kcktdbnf7eme1sl0ipq21ei0vhs6iedm.apps.googleusercontent.com" // Specify the WEB_CLIENT_ID of the app that accesses the backend
+        audience: AUDIANCE_EMAIL // Specify the WEB_CLIENT_ID of the app that accesses the backend
         // Or, if multiple clients access the backend:
         //[WEB_CLIENT_ID_1, WEB_CLIENT_ID_2, WEB_CLIENT_ID_3]
     });
@@ -114,7 +114,7 @@ export const signupWithGmail = async (req, res, next) => {
         id: user._id,
         email: user.email,
 
-    }, "test1",
+    }, ACCESS_TOKEN_SEGNATURE,
         {
             expiresIn: "60s",
 
@@ -124,9 +124,9 @@ export const signupWithGmail = async (req, res, next) => {
         id: user._id,
         email: user.email,
 
-    }, "test2")
+    }, REFRESH_TOKEN_SEGNATURE)
 
-    res.status(200).json({ message: "successfully signed in", tokens: { access_token, refresh_token } },)
+    success_response({ res, statuscode: 201, message: "successfully signed in", data: { access_token, refresh_token } })
 
 
 
@@ -157,7 +157,8 @@ export const confirmOtp = async (req, res, next) => {
         throw new Error("user doesnt exist or already confirmed");
     }
     deleteKey(`otp::${email}`)
-    res.status(200).json({ message: "email confirmed", user },)
+    success_response({ res, statuscode: 200, message: "email confirmed" })
+
 }
 
 //================sign in================
@@ -221,7 +222,7 @@ export const signin = async (req, res, next) => {
             jwtid: tokenId
         })
         deleteKey(`attempts::${email}`)
-        return res.status(200).json({ message: "successfully signed in", tokens: { access_token, refresh_token } },)
+        success_response({ res, statuscode: 200, message: "successfully signed in", data: { access_token, refresh_token } })
     }
     const otp = await generate_otp()
     const hashOtp = await hash(otp)
@@ -234,11 +235,12 @@ export const signin = async (req, res, next) => {
         await sendEmail({
             to: email,
             subject: "two step verification otp",
-            html: `<h1>otp:${otp}<h1>`
+            html: template.otpmail(otp)
         })
     }
     )
-    res.status(200).json({ message: "otp sent to your email" })
+    success_response({ res, statuscode: 200, message: "otp sent to your email" })
+
 }
 
 //================get profile================
@@ -246,7 +248,8 @@ export const getProfile = async (req, res, next) => {
 
     const user = req.user
 
-    res.status(200).json({ message: "successfully signed in", user },)
+    success_response({ res, statuscode: 200, message: "found profile", data: user })
+
 
 }
 
@@ -264,7 +267,8 @@ export const shareProfile = async (req, res, next) => {
 
     }
     user.phone = decrypt(user.phone)
-    res.status(200).json({ message: "user profile", user },)
+    success_response({ res, statuscode: 200, message: "found profile", data: user })
+
 
 }
 
@@ -290,7 +294,8 @@ export const refreshToken = async (req, res, next) => {
         phone: decrypt(user.phone)
     }, "test1",
     )
-    return res.status(200).json({ message: "done", access_token })
+    return success_response({ res, statuscode: 201, message: "done", data: access_token })
+
 
 }
 
@@ -321,7 +326,8 @@ export const updateProfile = async (req, res, next) => {
         update: updateQuery
     })
 
-    return res.status(200).json({ message: "done", user })
+    return success_response({ res, statuscode: 200, message: "done" })
+
 }
 
 //================update password================
@@ -333,7 +339,8 @@ export const updatePassword = async (req, res, next) => {
     }
     req.user.password = await hash(new_password)
     await req.user.save()
-    return res.status(200).json({ message: "done" })
+    return success_response({ res, statuscode: 200, message: "done" })
+
 }
 
 //================log out================
@@ -354,7 +361,8 @@ export const logOut = async (req, res, next) => {
             ttl: req.decoded.exp - Math.floor(Date.now() / 1000)
         })
     }
-    return res.status(200).json({ message: "successfully logged out" })
+    return success_response({ res, statuscode: 200, message: "successfully logged out" })
+
 }
 
 //================forget password================
@@ -364,7 +372,8 @@ export const forgetPassword = async (req, res, next) => {
         email: email,
         isConfirmed: true
     })
-    return res.status(200).json({ message: "password otp generated successfully" })
+    return success_response({ res, statuscode: 200, message: "password otp generated successfully" })
+
 }
 
 //================confirm password================
@@ -393,7 +402,8 @@ export const confirmPasswordOtp = async (req, res, next) => {
 
     }
     await deleteKey(`otp::${email}`)
-    return res.status(200).json({ message: "successfully changed password" })
+        return success_response({ res, statuscode: 200, message: "successfully changed password" })
+
 
 }
 
@@ -405,14 +415,15 @@ export const enable2SV = async (req, res, next) => {
     }
     user.twoStepVerification = true
     await user.save()
-    return res.status(200).json({ message: "enabled two step verfication", user })
+        return success_response({ res, statuscode: 200, message: "enabled two step verfication" })
+
 }
 
 //================confirm 2 step verfication================
 export const confirm2SV = async (req, res, next) => {
     const { email, otp } = req.body
-    const isblocked =await ttl(`attempts::block::${email}`)
-    if (isblocked >0) {
+    const isblocked = await ttl(`attempts::block::${email}`)
+    if (isblocked > 0) {
         throw new Error(`you have been blocked please try again in ${isblocked} seconds`);
     }
     const attempts = await getValue(`attempts::${email}`)
@@ -453,7 +464,7 @@ export const confirm2SV = async (req, res, next) => {
         id: user._id,
         email: user.email,
         phone: decrypt(user.phone),
-    }, "test1",
+    }, ACCESS_TOKEN_SEGNATURE,
         {
             expiresIn: "400s",
             audience: "http://localhost:4000",
@@ -464,7 +475,7 @@ export const confirm2SV = async (req, res, next) => {
         id: user._id,
         email: user.email,
         phone: decrypt(user.phone)
-    }, "test2", {
+    }, REFRESH_TOKEN_SEGNATURE, {
         expiresIn: "4000s",
         audience: "http://localhost:4000",
         issuer: "http://localhost:3000",
@@ -472,5 +483,6 @@ export const confirm2SV = async (req, res, next) => {
     })
     await deleteKey(`otp::2SV::${email}`)
     await deleteKey(`attempts::${email}`)
-    return res.status(200).json({ message: "signed in successfully", tokens: { access_token, refresh_token } })
+    return success_response({ res, statuscode: 200, message: "successfully signed in", data: { access_token, refresh_token } })
+
 }

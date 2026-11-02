@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken"
 import userModel from "../../DB/models/user.model.js"
 import * as dbService from "../../DB/service/db.service.js"
 import { ttl } from "../../DB/service/redis.service.js"
+import { ACCESS_TOKEN_SEGNATURE } from "../../../config/config.service.js"
 
 
 
@@ -14,7 +15,7 @@ export const authentication = async (req, res, next) => {
     if (!authorization) {
         throw new Error("token doesnt exist", { cause: 404 })
     }
-    const decoded = jwt.verify(authorization, "test1")
+    const decoded = jwt.verify(authorization, ACCESS_TOKEN_SEGNATURE)
     if (!decoded?.id) {
         throw new Error("inValid token", { cause: 400 })
     }

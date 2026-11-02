@@ -1,9 +1,10 @@
-import { getValue, incr, setValue, ttl } from "../../DB/service/redis.service.js";
+import { deleteKey, getValue, incr, setValue, ttl } from "../../DB/service/redis.service.js";
 import * as dbService from "../../DB/service/db.service.js";
 import userModel from "../../DB/models/user.model.js";
 import { generate_otp, sendEmail } from "../../common/services/sendEmail.js";
 import { hash } from "bcrypt";
 import { eventEmitter } from "../../common/utils/events.js";
+import { template } from "../../common/utils/html.templates.js";
 
 
 
@@ -19,6 +20,7 @@ export const sendEmailOtp = async ({ email, isConfirmed = false, }) => {
             value: "1",
             ttl: 60 * 5
         })
+        await deleteKey(`otp::max::${email}`)
         throw new Error("you have exceeded the maximum number of tries");
     }
     const user = await dbService.findOne({
@@ -40,7 +42,7 @@ export const sendEmailOtp = async ({ email, isConfirmed = false, }) => {
         await sendEmail({
             to: email,
             subject: "confirm email",
-            html: `<h1>otp::${otp}<h1>`
+            html: template.otpmail(otp)
         })
     }
     )
